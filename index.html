@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بحث النتائج</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding-top: 80px;
+    color: #fff;
+  }
+  .container {
+    width: 100%;
+    max-width: 600px;
+    padding: 0 20px;
+  }
+  h1 {
+    text-align: center;
+    font-weight: 300;
+    font-size: 28px;
+    margin-bottom: 30px;
+    letter-spacing: 1px;
+  }
+  h1 span { font-weight: 700; color: #f7971e; }
+  .search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+  }
+  .search-box input {
+    flex: 1;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    outline: none;
+    transition: 0.3s;
+  }
+  .search-box input::placeholder { color: rgba(255,255,255,0.5); }
+  .search-box input:focus { background: rgba(255,255,255,0.2); }
+  .search-box button {
+    padding: 14px 28px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f7971e, #ffd200);
+    color: #1a1a2e;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s;
+    white-space: nowrap;
+  }
+  .search-box button:hover { transform: scale(1.03); opacity: 0.9; }
+  .status-bar {
+    text-align: center;
+    color: rgba(255,255,255,0.45);
+    font-size: 13px;
+    margin-bottom: 20px;
+    min-height: 20px;
+  }
+  .result-card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 30px;
+    border: 1px solid rgba(255,255,255,0.1);
+    display: none;
+    animation: fadeIn 0.4s ease;
+  }
+  .result-card.show { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .result-card .field {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 16px;
+  }
+  .result-card .field:last-child { border-bottom: none; }
+  .result-card .label { color: rgba(255,255,255,0.5); }
+  .result-card .value { font-weight: 600; color: #ffd200; }
+  .not-found {
+    text-align: center;
+    padding: 30px;
+    color: rgba(255,255,255,0.6);
+    font-size: 16px;
+    display: none;
+  }
+  .not-found.show { display: block; }
+  .error-msg {
+    text-align: center;
+    padding: 20px;
+    color: #ff6b6b;
+    background: rgba(255,0,0,0.1);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+  .hint {
+    text-align: center;
+    color: rgba(255,255,255,0.35);
+    font-size: 14px;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>&#x1F50D; <span>بحث</span> النتائج</h1>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الجلوس..." dir="rtl">
+    <button id="searchBtn">بحث</button>
+  </div>
+  <div class="status-bar" id="statusBar"></div>
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="result-card" id="resultCard">
+    <div class="field"><span class="label">رقم الجلوس</span><span class="value" id="rSeating"></span></div>
+    <div class="field"><span class="label">الاسم</span><span class="value" id="rName"></span></div>
+    <div class="field"><span class="label">المجموع الكلي</span><span class="value" id="rDegree"></span></div>
+    <div class="field"><span class="label">النسبة المئوية</span><span class="value" id="rPercent"></span></div>
+  </div>
+  <div class="not-found" id="notFound">لا توجد نتائج مطابقة للبحث</div>
+  <div class="hint" id="hint">أدخل الاسم أو رقم الجلوس للبحث</div>
+</div>
+
+<script>
+const TOTAL_FILES = 19;
+let allData = [];
+let loaded = 0;
+
+async function loadAllFiles() {
+  const statusBar = document.getElementById('statusBar');
+  const errorMsg = document.getElementById('errorMsg');
+
+  statusBar.textContent = 'جاري تحميل البيانات... 0/' + TOTAL_FILES;
+
+  const fetches = [];
+  for (let i = 1; i <= TOTAL_FILES; i++) {
+    fetches.push(
+      fetch('result' + i + '.json')
+        .then(r => {
+          if (!r.ok) throw new Error('فشل تحميل result' + i + '.json');
+          return r.json();
+        })
+        .then(data => {
+          allData = allData.concat(data);
+          loaded++;
+          statusBar.textContent = 'جاري تحميل البيانات... ' + loaded + '/' + TOTAL_FILES;
+        })
+    );
+  }
+
+  try {
+    await Promise.all(fetches);
+    statusBar.textContent = 'تم تحميل ' + allData.length + ' سجل. جاهز للبحث.';
+    document.getElementById('hint').textContent = 'أدخل الاسم أو رقم الجلوس للبحث';
+  } catch (e) {
+    statusBar.textContent = '';
+    errorMsg.textContent = 'فشل تحميل البيانات: ' + e.message;
+    errorMsg.classList.add('show');
+  }
+}
+
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  const resultCard = document.getElementById('resultCard');
+  const notFound = document.getElementById('notFound');
+  const errorMsg = document.getElementById('errorMsg');
+  errorMsg.classList.remove('show');
+  resultCard.classList.remove('show');
+  notFound.classList.remove('show');
+  if (!q) return;
+
+  const results = allData.filter(item =>
+    item.arabic_name.includes(q) || String(item.seating_no) === q
+  );
+
+  if (results.length === 0) {
+    notFound.classList.add('show');
+    return;
+  }
+
+  const r = results[0];
+  document.getElementById('rSeating').textContent = r.seating_no;
+  document.getElementById('rName').textContent = r.arabic_name;
+  document.getElementById('rDegree').textContent = r.total_degree;
+  document.getElementById('rPercent').textContent = r.percentage + '%';
+  resultCard.classList.add('show');
+}
+
+document.getElementById('searchBtn').addEventListener('click', doSearch);
+document.getElementById('searchInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') doSearch();
+});
+
+loadAllFiles();
+</script>
+</body>
+</html>
